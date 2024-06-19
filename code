@@ -1,0 +1,82 @@
+import tkinter as tk
+from tkinter import filedialog
+import pygame
+import pysrt
+import threading
+import time
+
+class AudioPlayerWithSubtitles:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Audio Player with Subtitles")
+        
+        self.audio_file = None
+        self.subtitle_file = None
+        self.subtitles = None
+        self.current_subtitle_index = 0
+        self.is_playing = False
+        
+        self.create_widgets()
+        pygame.mixer.init()
+
+    def create_widgets(self):
+        self.load_audio_button = tk.Button(self.root, text="Load Audio", command=self.load_audio)
+        self.load_audio_button.pack(pady=10)
+        
+        self.load_subtitle_button = tk.Button(self.root, text="Load Subtitles", command=self.load_subtitles)
+        self.load_subtitle_button.pack(pady=10)
+        
+        self.play_button = tk.Button(self.root, text="Play", command=self.play_audio)
+        self.play_button.pack(pady=10)
+        
+        self.stop_button = tk.Button(self.root, text="Stop", command=self.stop_audio)
+        self.stop_button.pack(pady=10)
+        
+        self.subtitle_label = tk.Label(self.root, text="", wraplength=400, justify="center")
+        self.subtitle_label.pack(pady=20)
+
+    def load_audio(self):
+        self.audio_file = filedialog.askopenfilename(filetypes=[("Audio Files", "*.mp3;*.wav")])
+        if self.audio_file:
+            pygame.mixer.music.load(self.audio_file)
+            self.subtitle_label.config(text="Audio loaded successfully.")
+
+    def load_subtitles(self):
+        self.subtitle_file = filedialog.askopenfilename(filetypes=[("Subtitle Files", "*.srt")])
+        if self.subtitle_file:
+            self.subtitles = pysrt.open(self.subtitle_file)
+            self.subtitle_label.config(text="Subtitles loaded successfully.")
+
+    def play_audio(self):
+        if self.audio_file and self.subtitles:
+            pygame.mixer.music.play()
+            self.is_playing = True
+            self.current_subtitle_index = 0
+            threading.Thread(target=self.update_subtitles).start()
+        else:
+            self.subtitle_label.config(text="Please load both audio and subtitles.")
+
+    def stop_audio(self):
+        pygame.mixer.music.stop()
+        self.is_playing = False
+        self.subtitle_label.config(text="")
+
+    def update_subtitles(self):
+        while self.is_playing and self.current_subtitle_index < len(self.subtitles):
+            current_time = pygame.mixer.music.get_pos() / 1000.0
+            subtitle = self.subtitles[self.current_subtitle_index]
+            start_time = subtitle.start.ordinal / 1000.0
+            end_time = subtitle.end.ordinal / 1000.0
+            
+            if start_time <= current_time <= end_time:
+                self.subtitle_label.config(text=subtitle.text)
+            elif current_time > end_time:
+                self.current_subtitle_index += 1
+                self.subtitle_label.config(text="")
+            
+            time.sleep(0.1)
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = AudioPlayerWithSubtitles(root)
+    root.mainloop()
